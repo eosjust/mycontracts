@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-// File: contracts/lib/InitializableOwnable.sol
-
 interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
 
     function transfer(address to, uint256 amount) external returns (bool);
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 
     function balanceOf(address user) external view returns (uint256 balance);
 
@@ -63,7 +57,7 @@ contract p314 {
 
     constructor(uint256 _virtual_eth, address _stoken) {
         owner = msg.sender;
-        totalSupply = 21000000 * 10**18;
+        totalSupply = 21000000 * 10 ** 18;
         max_transfer = totalSupply / 100;
         trading_enable = false;
         virtual_eth = _virtual_eth;
@@ -87,11 +81,7 @@ contract p314 {
         }
     }
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
         require(amount <= _balances[from], "BALANCE_NOT_ENOUGH");
         require(amount <= allowed[from][msg.sender], "ALLOWANCE_NOT_ENOUGH");
         allowed[from][msg.sender] = allowed[from][msg.sender] - amount;
@@ -103,23 +93,13 @@ contract p314 {
         }
     }
 
-    function _transfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal returns (bool) {
-        if(to != address(0)){
+    function _transfer(address from, address to, uint256 amount) internal returns (bool) {
+        if (to != address(0)) {
             //防夹子
-            require(
-                _lastTransaction[msg.sender] != block.number,
-                "You can't make two transactions in the same block"
-            );
+            require(_lastTransaction[msg.sender] != block.number, "You can't make two transactions in the same block");
             _lastTransaction[msg.sender] = uint32(block.number);
 
-            require(
-                block.timestamp >= _lastTxTime[msg.sender] + 60,
-                "Sender must wait for cooldown"
-            );
+            require(block.timestamp >= _lastTxTime[msg.sender] + 60, "Sender must wait for cooldown");
             _lastTxTime[msg.sender] = block.timestamp;
         }
 
@@ -139,11 +119,7 @@ contract p314 {
         return true;
     }
 
-    function allowance(address user, address spender)
-    public
-    view
-    returns (uint256)
-    {
+    function allowance(address user, address spender) public view returns (uint256){
         return allowed[user][spender];
     }
 
@@ -151,13 +127,8 @@ contract p314 {
         return (virtual_eth + address(this).balance, _balances[address(this)]);
     }
 
-    function getAmountOut(uint256 value, bool _buy)
-    public
-    view
-    returns (uint256)
-    {
+    function getAmountOut(uint256 value, bool _buy) public view returns (uint256){
         (uint256 reserveETH, uint256 reserveToken) = getReserves();
-
         if (_buy) {
             return (value * reserveToken) / (reserveETH + value);
         } else {
@@ -208,12 +179,8 @@ contract p314 {
         (address(this).balance) +
         virtual_eth) / (_balances[address(this)] + swap_amount);
         require(ethAmount > 0, "Sell amount too low");
-        require(
-            address(this).balance >= ethAmount,
-            "Insufficient ETH in reserves"
-        );
+        require(address(this).balance >= ethAmount, "Insufficient ETH in reserves");
         payable(user).transfer(ethAmount);
-
         _transfer(user, address(this), swap_amount);
         _transfer(user, address(0), burn_amount);
         emit Swap(msg.sender, 0, sell_amount, ethAmount, 0);
