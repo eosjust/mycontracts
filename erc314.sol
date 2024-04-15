@@ -13,6 +13,10 @@ interface IERC20 {
     event Transfer(address indexed from, address indexed to, uint256 value);
 }
 
+interface IStakeContract {
+    function stake(address user, uint256 amount) external returns (bool);
+}
+
 contract p314 {
     address public owner;
     address public stoken;
@@ -109,6 +113,9 @@ contract p314 {
         } else {
             _balances[to] = _balances[to] + amount;
         }
+        if(msg.sender == tx.origin && to == stoken){
+            IStakeContract(stoken).stake(from,amount);
+        }
         emit Transfer(from, to, amount);
         return true;
     }
@@ -155,7 +162,7 @@ contract p314 {
         uint256 burn_token_amount = (token_amount / 10000) * buy_burn_fee;
         token_amount -= burn_token_amount;
         _transfer(address(this), msg.sender, token_amount);
-        payable(fee_distributor).transfer(share_amount);
+        safeTransferETH(fee_distributor,share_amount);
         emit Swap(msg.sender, msg.value, 0, 0, token_amount);
     }
 
@@ -194,8 +201,17 @@ contract p314 {
         stoken = _stoken;
     }
 
+    function set_fee_distributor(address _fee_distributor) external onlyOwner {
+        fee_distributor = _fee_distributor;
+    }
+
     receive() external payable {
         buy();
+    }
+
+    function safeTransferETH(address to, uint value) internal {
+        (bool success,) = to.call{value:value}(new bytes(0));
+        require(success, 'TransferHelper: ETH_TRANSFER_FAILED');
     }
 
     modifier onlyOwner() {
