@@ -19,9 +19,9 @@ interface IStakeContract {
 
 contract StakeToken {
     address public owner;
-    string public name = "stoken";
+    string public name = "share of safe314";
     uint256 public decimals = 18;
-    string public symbol = "stoken";
+    string public symbol = "share";
     uint256 public totalSupply;
     uint256 public historySupply;
     uint256 public maxSupply;
@@ -29,7 +29,7 @@ contract StakeToken {
     uint256 public startMintBlock;
     uint256 public lastMintBlock;
 
-    address public x314;
+    address public s314;
     address public fee_distributor;
     mapping(address => uint256) _balances;
     mapping(address => mapping(address => uint256)) internal allowed;
@@ -39,17 +39,17 @@ contract StakeToken {
     uint256 public global_keys;
     uint256 public global_mask;
 
-    mapping(address => uint256) user_keys;
-    mapping(address => uint256) user_mask;
+    mapping(address => uint256) public user_keys;
+    mapping(address => uint256) public user_mask;
 
     //
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(address indexed user, address indexed spender, uint256 amount);
 
 
-    constructor(address _x314) {
+    constructor() {
         owner = msg.sender;
-        x314 = _x314;
+        //s314 = _s314;
         maxSupply = 10000000 * 10 ** 18;
     }
 
@@ -70,7 +70,7 @@ contract StakeToken {
             uint256 mint_amount = 0;
             if(passBlock>0){
                 // start with 10 token per block, halved every 14 days
-                mint_amount = (passBlock * (maxSupply-historySupply)) / ((maxSupply / 10) + passBlock + lastMintBlock - startMintBlock);
+                mint_amount = (passBlock * (maxSupply-historySupply)) / ((10000000) + passBlock + lastMintBlock - startMintBlock);
             }
             if(mint_amount>0){
                 uint256 balance_per_key = MUL_BASE * mint_amount / global_keys;
@@ -102,7 +102,7 @@ contract StakeToken {
         _add_supply();
         _cal_real_balance(from);
         require(amount <= _balances[from], "BALANCE_NOT_ENOUGH");
-        if (from != x314) {
+        if (msg.sender != s314) {
             require(amount <= allowed[from][msg.sender], "ALLOWANCE_NOT_ENOUGH");
             allowed[from][msg.sender] = allowed[from][msg.sender] - amount;
         }
@@ -137,7 +137,8 @@ contract StakeToken {
 
     //质押314token到此合约
     function stake(address user, uint256 amount) external returns (bool) {
-        require(msg.sender == x314, "auth fail!");
+        require(msg.sender == s314, "auth fail!");
+        _add_supply();
         global_keys += amount;
         user_keys[user] += amount;
         user_mask[user] += global_mask * amount;
@@ -149,12 +150,12 @@ contract StakeToken {
         uint256 extra_amount = (global_mask * user_keys[user] - user_mask[user]) / MUL_BASE;
         user_mask[user] = global_mask * user_keys[user];
         _balances[user] += extra_amount;
-        uint256 x314_amount = user_keys[user] * 1;
+        uint256 s314_amount = user_keys[user] * 1;
         global_keys -= user_keys[user];
         user_mask[user] = 0;
         user_keys[user] = 0;
-        require(IERC20(x314).balanceOf(address(this)) >= x314_amount, "314 amount not enough");
-        IERC20(x314).transfer(user, x314_amount);
+        require(IERC20(s314).balanceOf(address(this)) >= s314_amount, "314 amount not enough");
+        IERC20(s314).transfer(user, s314_amount);
         return true;
     }
 
@@ -173,8 +174,8 @@ contract StakeToken {
         return allowed[user][spender];
     }
 
-    function setX314(address _x314) external onlyOwner {
-        x314 = _x314;
+    function setS314(address _s314) external onlyOwner {
+        s314 = _s314;
     }
 
     function set_fee_distributor(address _fee_distributor) external onlyOwner {
@@ -185,4 +186,10 @@ contract StakeToken {
         require(msg.sender == owner, "NOT_OWNER");
         _;
     }
+
+    //avoid user misoperation
+    receive() external payable {
+        payable(msg.sender).transfer(msg.value);
+    }
+
 }

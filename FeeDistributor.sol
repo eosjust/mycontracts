@@ -25,9 +25,10 @@ contract FeeDistributor {
     uint256 internal MUL_BASE = 10 ** 18;
     uint256 public global_keys;
     uint256 public global_mask;
+    uint256 public global_profit;
 
-    mapping(address => uint256) user_keys;
-    mapping(address => uint256) user_mask;
+    mapping(address => uint256) public user_keys;
+    mapping(address => uint256) public user_mask;
 
     constructor(address _x314,address _stoken) {
         owner = msg.sender;
@@ -43,8 +44,8 @@ contract FeeDistributor {
         return true;
     }
 
-    function withdraw(address user) public returns (uint256) {
-        require(msg.sender==user,"auth fail");
+    function withdraw() public returns (uint256) {
+        address user = msg.sender;
         uint256 profit = (global_mask * user_keys[user] - user_mask[user]) / MUL_BASE;
         user_mask[user] = global_mask * user_keys[user];
         require(address(this).balance >= profit,"eth not enough");
@@ -52,17 +53,17 @@ contract FeeDistributor {
         return profit;
     }
 
-    function quit(address user) public returns (uint256) {
-        require(msg.sender==user,"auth fail");
+    function quit() public returns (uint256) {
+        address user = msg.sender;
         uint256 profit = (global_mask * user_keys[user] - user_mask[user]) / MUL_BASE;
         global_keys -= user_keys[user];
         uint256 stoken_amount = user_keys[user] * 1;
         user_mask[user] = 0;
         user_keys[user] = 0;
-        require(address(this).balance >= profit,"eth not enough");
-        payable(user).transfer(profit);
         require(IERC20(stoken).balanceOf(address(this)) >= stoken_amount, "stoken amount not enough");
         IERC20(stoken).transfer(user, stoken_amount);
+        require(address(this).balance >= profit,"eth not enough");
+        payable(user).transfer(profit);
         return profit;
     }
 
@@ -74,11 +75,15 @@ contract FeeDistributor {
     function add_profit() public payable returns (bool) {
         uint256 amount = msg.value;
         if(amount>0){
+            global_profit += amount;
             if(global_keys>0){
-                uint256 profitPerKey = MUL_BASE * amount / global_keys;
+                uint256 dev_fee = amount / 10;
+                uint256 share_amount = amount - dev_fee;
+                uint256 profitPerKey = MUL_BASE * share_amount / global_keys;
                 global_mask+=profitPerKey;
+                payable(owner).transfer(dev_fee);
             }else{
-                //没有质押的情况
+                //no any stake
                 payable(owner).transfer(amount);
             }
         }
@@ -96,11 +101,10 @@ contract FeeDistributor {
 
     receive() external payable {
         if(msg.sender == tx.origin){
-            //用户转账任意额度，退出质押
-            quit(msg.sender);
-            payable(owner).transfer(msg.value);
+            //user send any amount eth to quit
+            quit();
+            payable(msg.sender).transfer(msg.value);
         }else{
-            //其他情况增加分红
             add_profit();
         }
     }
