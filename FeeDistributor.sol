@@ -26,6 +26,7 @@ contract FeeDistributor {
     uint256 public global_keys;
     uint256 public global_mask;
     uint256 public global_profit;
+    uint256 public dev_fee=5;
 
     mapping(address => uint256) public user_keys;
     mapping(address => uint256) public user_mask;
@@ -77,11 +78,11 @@ contract FeeDistributor {
         if(amount>0){
             global_profit += amount;
             if(global_keys>0){
-                uint256 dev_fee = amount / 10;
-                uint256 share_amount = amount - dev_fee;
+                uint256 dev_amount = amount / dev_fee;
+                uint256 share_amount = amount - dev_amount;
                 uint256 profitPerKey = MUL_BASE * share_amount / global_keys;
                 global_mask+=profitPerKey;
-                payable(owner).transfer(dev_fee);
+                payable(owner).transfer(dev_amount);
             }else{
                 //no any stake
                 payable(owner).transfer(amount);
@@ -92,6 +93,10 @@ contract FeeDistributor {
 
     function setStoken(address _stoken) external onlyOwner {
         stoken = _stoken;
+    }
+
+    function setDevFee(uint256 _dev_fee) external onlyOwner {
+        dev_fee = _dev_fee;
     }
 
     modifier onlyOwner() {

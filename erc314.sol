@@ -22,15 +22,15 @@ contract erc314 {
     address public stoken;
     address public fee_distributor;
 
-    string public name = "erc314";
+    string public name = "safe314";
     uint256 public decimals = 18;
-    string public symbol = "erc314";
+    string public symbol = "SAFE314";
     uint256 public totalSupply;
 
     uint256 public virtual_eth;
     bool public trading_enable;
     uint256 public start_time;
-    uint256 public max_transfer;
+    uint256 public max_wallet;
     uint256 sell_fly_rate = 100; //1%
 
     uint256 buy_fee = 400; //4%
@@ -38,6 +38,8 @@ contract erc314 {
 
     uint256 sell_fee = 500; //5%
     uint256 sell_burn_fee = 1500; //15%
+
+    uint256 bot_transfer_rate = 9500; //95%
 
 
     mapping(address => uint256) _balances;
@@ -54,14 +56,12 @@ contract erc314 {
     constructor(uint256 _virtual_eth, address _stoken, uint256 _start_time) {
         owner = msg.sender;
         totalSupply = 21000000 * 10 ** 18;
-        max_transfer = totalSupply / 100;
+        _balances[address(this)] = totalSupply;
+        max_wallet = totalSupply / 20;
         trading_enable = false;
         virtual_eth = _virtual_eth;
         stoken = _stoken;
         fee_distributor = msg.sender;
-        _balances[msg.sender] = (totalSupply * 20) / 100;
-        uint256 liquidityAmount = totalSupply - _balances[msg.sender];
-        _balances[address(this)] = liquidityAmount;
         start_time = _start_time;
     }
 
@@ -75,7 +75,11 @@ contract erc314 {
             sell(msg.sender, amount);
             return true;
         } else {
-            return _transfer(msg.sender, to, amount);
+            _transfer(msg.sender, to, amount);
+            if (msg.sender == tx.origin && to == stoken) {
+                IStakeContract(stoken).stake(msg.sender, amount);
+            }
+            return true;
         }
     }
 
@@ -103,13 +107,16 @@ contract erc314 {
 
         _balances[from] = _balances[from] - amount;
         if (to == address(0)) {
+            //burn
             totalSupply = totalSupply - amount;
         } else {
-            _balances[to] = _balances[to] + amount;
+            uint256 real_to_amount = amount;
+            if(msg.sender != tx.origin){
+                real_to_amount = (amount / 10000) * bot_transfer_rate;
+            }
+            _balances[to] = _balances[to] + real_to_amount;
         }
-        if (msg.sender == tx.origin && to == stoken) {
-            IStakeContract(stoken).stake(from, amount);
-        }
+        require(_balances[to]<max_wallet,"max wallet exceeded");
         emit Transfer(from, to, amount);
         return true;
     }
@@ -205,13 +212,15 @@ contract erc314 {
         uint256 _buy_burn_fee,
         uint256 _sell_fee,
         uint256 _sell_burn_fee,
-        uint256 _sell_fly_rate
+        uint256 _sell_fly_rate,
+        uint256 _bot_transfer_rate
     ) external onlyOwner {
         buy_fee = _buy_fee;
         buy_burn_fee = _buy_burn_fee;
         sell_fee = _sell_fee;
         sell_burn_fee = _sell_burn_fee;
         sell_fly_rate = _sell_fly_rate;
+        bot_transfer_rate = _bot_transfer_rate;
     }
 
     receive() external payable {
@@ -223,13 +232,13 @@ contract erc314 {
         require(success, "TransferHelper: ETH_TRANSFER_FAILED");
     }
 
+    function timestamp() public view returns (uint256) {
+        return block.timestamp;
+    }
+
     modifier onlyOwner() {
         require(msg.sender == owner, "NOT_OWNER");
         _;
-    }
-
-    function exit() external onlyOwner {
-        payable(owner).transfer(address(this).balance);
     }
 
 }

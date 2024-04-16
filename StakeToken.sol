@@ -19,9 +19,9 @@ interface IStakeContract {
 
 contract StakeToken {
     address public owner;
-    string public name = "share of safe314";
+    string public name = "Share of Safe314";
     uint256 public decimals = 18;
-    string public symbol = "share";
+    string public symbol = "Share314";
     uint256 public totalSupply;
     uint256 public historySupply;
     uint256 public maxSupply;
@@ -69,8 +69,8 @@ contract StakeToken {
             }
             uint256 mint_amount = 0;
             if(passBlock>0){
-                // start with 10 token per block, halved every 14 days
-                mint_amount = (passBlock * (maxSupply-historySupply)) / ((10000000) + passBlock + lastMintBlock - startMintBlock);
+                // start with 5 token per block, halved every 14 days
+                mint_amount = (passBlock * (maxSupply-historySupply)) / ((2000000) + passBlock + lastMintBlock - startMintBlock);
             }
             if(mint_amount>0){
                 uint256 balance_per_key = MUL_BASE * mint_amount / global_keys;
